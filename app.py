@@ -229,6 +229,27 @@ demo = gr.Interface(
             source="upload",
             label='Please upload a voice to clone (max. 30mb)')
             ],
-            outputs="audio",
-            )
+    outputs="audio",
+
+    title = 'Clone Your Voice',
+            description = 'A simple application that Clone Your Voice.  Wait one minute to process.',
+            article = 
+                        '''<div>
+                            <p style="text-align: center"> All you need to do is record your voice, type what you want be say
+                            ,then wait for compiling. After that click on Play/Pause for listen the audio. The audio is saved in an wav format.
+                            For more information visit <a href="https://ruslanmv.com/">ruslanmv.com</a>
+                            </p>
+                        </div>''',
+
+           examples = [
+                        ["I am the cloned version of Donald Trump.Well, I am a Republican, and I would run as a Republican. And I have a lot of confidence in the Republican Party. I don't have a lot of confidence in the president. I think what's happening to this country is unbelievably bad. We're no longer a respected country.","trump.mp3"]
+                    
+                      ]     
+
+    
+    
+    
+    
+    
+    )
 demo.launch()
