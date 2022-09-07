@@ -20,7 +20,7 @@ from synthesizer.inference import Synthesizer
 from utils.argutils import print_args
 from utils.default_models import ensure_default_models
 from vocoder import inference as vocoder
-import sounddevice as sd
+#import sounddevice as sd
 parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter
 )
@@ -169,7 +169,7 @@ def clone_voice(in_fpath, text,synthesizer):
             save_on_disk(generated_wav,synthesizer)
 
             #Play the audio 
-            play_audio(generated_wav,synthesizer)
+            #play_audio(generated_wav,synthesizer)
 
             return        
     except Exception as e:
