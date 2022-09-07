@@ -211,7 +211,7 @@ def greet(Text,Voicetoclone):
       else:
             print(f'{env_var} does not exist')
       #os.system(f'ffmpeg-normalize {os.environ[env_var]} -nt rms -t=-27 -o {os.environ[env_var]} -ar 16000 -f')
-      in_fpath = Path(sample)
+      in_fpath = Path(Voicetoclone)
       #in_fpath= in_fpath.replace("\"", "").replace("\'", "")
       
       out_path=clone_voice(in_fpath, text,synthesizer)
@@ -242,8 +242,8 @@ demo = gr.Interface(
                         </div>''',
 
            examples = [
-                        ["I am the cloned version of Donald Trump.Well, I am a Republican, and I would run as a Republican. And I have a lot of confidence in the Republican Party. I don't have a lot of confidence in the president. I think what's happening to this country is unbelievably bad. We're no longer a respected country.","trump.mp3"]
-                    
+                        ["I am the cloned version of Donald Trump.Well,  I think what's happening to this country is unbelievably bad. We're no longer a respected country" ,"trump.mp3"]
+                                           
                       ]     
 
     
