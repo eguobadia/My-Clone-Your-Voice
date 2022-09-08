@@ -1,26 +1,24 @@
 import gradio as gr
 import os
+from utils.default_models import ensure_default_models
 import sys
-import os
-import string
-import numpy as np
-import IPython
-from IPython.display import Audio
-import torch
-import argparse
-import os
+import traceback
 from pathlib import Path
-import librosa
+from time import perf_counter as timer
 import numpy as np
-import soundfile as sf
 import torch
 from encoder import inference as encoder
-from encoder.params_model import model_embedding_size as speaker_embedding_size
 from synthesizer.inference import Synthesizer
-from utils.argutils import print_args
-from utils.default_models import ensure_default_models
+#from toolbox.utterance import Utterance
 from vocoder import inference as vocoder
-#import sounddevice as sd
+import time
+import librosa
+import numpy as np
+import sounddevice as sd
+import soundfile as sf
+import argparse
+from utils.argutils import print_args
+
 parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter
 )
@@ -42,6 +40,16 @@ parser.add_argument("--seed", type=int, default=None, help=\
 args = parser.parse_args()
 arg_dict = vars(args)
 print_args(args, parser)
+
+# Maximum of generated wavs to keep on memory
+MAX_WAVS = 15
+utterances = set()
+current_generated = (None, None, None, None) # speaker_name, spec, breaks, wav
+synthesizer = None # type: Synthesizer
+current_wav = None
+waves_list = []
+waves_count = 0
+waves_namelist = []
 
 # Hide GPUs from Pytorch to force CPU processing
 if arg_dict.pop("cpu"):
@@ -67,65 +75,137 @@ else:
 ## Load the models one by one.
 print("Preparing the encoder, the synthesizer and the vocoder...")
 ensure_default_models(Path("saved_models"))
-encoder.load_model(args.enc_model_fpath)
-synthesizer = Synthesizer(args.syn_model_fpath)
-vocoder.load_model(args.voc_model_fpath)
+#encoder.load_model(args.enc_model_fpath)
+#synthesizer = Synthesizer(args.syn_model_fpath)
+#vocoder.load_model(args.voc_model_fpath)
 
 def compute_embedding(in_fpath):
+
+    if not encoder.is_loaded():
+        model_fpath = args.enc_model_fpath
+        print("Loading the encoder %s... " % model_fpath)
+        start = time.time() 
+        encoder.load_model(model_fpath)
+        print("Done (%dms)." % int(1000 * (time.time() - start)), "append")
+
+
     ## Computing the embedding
     # First, we load the wav using the function that the speaker encoder provides. This is
+    
+    # Get the wav from the disk. We take the wav with the vocoder/synthesizer format for
+    # playback, so as to have a fair comparison with the generated audio
+    wav = Synthesizer.load_preprocess_wav(in_fpath)
+    
     # important: there is preprocessing that must be applied.
 
     # The following two methods are equivalent:
     # - Directly load from the filepath:
-    preprocessed_wav = encoder.preprocess_wav(in_fpath)
+    preprocessed_wav = encoder.preprocess_wav(wav)
+
     # - If the wav is already loaded:
-    original_wav, sampling_rate = librosa.load(str(in_fpath))
-    preprocessed_wav = encoder.preprocess_wav(original_wav, sampling_rate)
+    #original_wav, sampling_rate = librosa.load(str(in_fpath))
+    #preprocessed_wav = encoder.preprocess_wav(original_wav, sampling_rate)
+
+    # Compute the embedding
+    embed, partial_embeds, _ = encoder.embed_utterance(preprocessed_wav, return_partials=True)
+
+
     print("Loaded file succesfully")
 
     # Then we derive the embedding. There are many functions and parameters that the
     # speaker encoder interfaces. These are mostly for in-depth research. You will typically
     # only use this function (with its default parameters):
-    embed = encoder.embed_utterance(preprocessed_wav)
+    #embed = encoder.embed_utterance(preprocessed_wav)
     
     return embed 
-def create_spectrogram(text,embed, synthesizer ):
+def create_spectrogram(text,embed):
         # If seed is specified, reset torch seed and force synthesizer reload
         if args.seed is not None:
             torch.manual_seed(args.seed)
             synthesizer = Synthesizer(args.syn_model_fpath)
+        
+        
+        # Synthesize the spectrogram
+        model_fpath = args.syn_model_fpath
+        print("Loading the synthesizer %s... " % model_fpath)
+        start = time.time()
+        synthesizer = Synthesizer(model_fpath)
+        print("Done (%dms)." % int(1000 * (time.time()- start)), "append")          
+        
+
         # The synthesizer works in batch, so you need to put your data in a list or numpy array
         texts = [text]
         embeds = [embed]
         # If you know what the attention layer alignments are, you can retrieve them here by
         # passing return_alignments=True
         specs = synthesizer.synthesize_spectrograms(texts, embeds)
-        spec = specs[0]
-        return spec
+        breaks = [spec.shape[1] for spec in specs]
+        spec = np.concatenate(specs, axis=1)
+        sample_rate=synthesizer.sample_rate
+        return spec, breaks , sample_rate
 
-def generate_waveform(spec):
+
+def generate_waveform(current_generated):
+
+        speaker_name, spec, breaks = current_generated
+        assert spec is not None
+
         ## Generating the waveform
         print("Synthesizing the waveform:")
         # If seed is specified, reset torch seed and reload vocoder
         if args.seed is not None:
             torch.manual_seed(args.seed)
             vocoder.load_model(args.voc_model_fpath)
+
+        model_fpath = args.voc_model_fpath
+        # Synthesize the waveform
+        if not vocoder.is_loaded():
+            print("Loading the vocoder %s... " % model_fpath)
+            start = time.time()
+            vocoder.load_model(model_fpath)
+            print("Done (%dms)." % int(1000 * (time.time()- start)), "append")    
+
+        current_vocoder_fpath= model_fpath
+        def vocoder_progress(i, seq_len, b_size, gen_rate):
+            real_time_factor = (gen_rate / Synthesizer.sample_rate) * 1000
+            line = "Waveform generation: %d/%d (batch size: %d, rate: %.1fkHz - %.2fx real time)" \
+                % (i * b_size, seq_len * b_size, b_size, gen_rate, real_time_factor)
+            print(line, "overwrite")       
+
+
         # Synthesizing the waveform is fairly straightforward. Remember that the longer the
         # spectrogram, the more time-efficient the vocoder.
-        generated_wav = vocoder.infer_waveform(spec)
+        if  current_vocoder_fpath is not None:
+            print("")
+            generated_wav = vocoder.infer_waveform(spec, progress_callback=vocoder_progress)
+        else:
+            print("Waveform generation with Griffin-Lim... ")
+            generated_wav = Synthesizer.griffin_lim(spec)
+
+        print(" Done!", "append")
+
 
         ## Post-generation
         # There's a bug with sounddevice that makes the audio cut one second earlier, so we
         # pad it.
-        generated_wav = np.pad(generated_wav, (0, synthesizer.sample_rate), mode="constant")
+        generated_wav = np.pad(generated_wav, (0, Synthesizer.sample_rate), mode="constant")
+
+        # Add breaks
+        b_ends = np.cumsum(np.array(breaks) * Synthesizer.hparams.hop_size)
+        b_starts = np.concatenate(([0], b_ends[:-1]))
+        wavs = [generated_wav[start:end] for start, end, in zip(b_starts, b_ends)]
+        breaks = [np.zeros(int(0.15 * Synthesizer.sample_rate))] * len(breaks)
+        generated_wav = np.concatenate([i for w, b in zip(wavs, breaks) for i in (w, b)])
+
 
         # Trim excess silences to compensate for gaps in spectrograms (issue #53)
         generated_wav = encoder.preprocess_wav(generated_wav)
+
+
         return generated_wav
 
 
-def save_on_disk(generated_wav,synthesizer):
+def save_on_disk(generated_wav,sample_rate):
         # Save it on the disk
         filename = "cloned_voice.wav"
         print(generated_wav.dtype)
@@ -135,41 +215,43 @@ def save_on_disk(generated_wav,synthesizer):
         #result = os.path.join(OUT, filename)
         result = filename
         print(" > Saving output to {}".format(result))
-        sf.write(result, generated_wav.astype(np.float32), synthesizer.sample_rate)
+        sf.write(result, generated_wav.astype(np.float32), sample_rate)
         print("\nSaved output as %s\n\n" % result) 
       
         return  result     
-def play_audio(generated_wav,synthesizer):
+def play_audio(generated_wav,sample_rate):
         # Play the audio (non-blocking)
         if not args.no_sound:
           
             try:
                 sd.stop()
-                sd.play(generated_wav, synthesizer.sample_rate)
+                sd.play(generated_wav, sample_rate)
             except sd.PortAudioError as e:
                 print("\nCaught exception: %s" % repr(e))
                 print("Continuing without audio playback. Suppress this message with the \"--no_sound\" flag.\n")
             except:
                 raise
 
-def clone_voice(in_fpath, text,synthesizer):
+def clone_voice(in_fpath, text):
     try:       
+            speaker_name = "output"
             # Compute embedding
             embed=compute_embedding(in_fpath)
             print("Created the embedding")
             # Generating the spectrogram
-            spec = create_spectrogram(text,embed,synthesizer)
+            spec, breaks, sample_rate = create_spectrogram(text,embed)
+            current_generated = (speaker_name, spec, breaks)
             print("Created the mel spectrogram")
 
             # Create waveform
-            generated_wav=generate_waveform(spec)
+            generated_wav=generate_waveform(current_generated)
             print("Created the the waveform ")
 
             # Save it on the disk
-            save_on_disk(generated_wav,synthesizer)
+            save_on_disk(generated_wav,sample_rate)
 
             #Play the audio 
-            #play_audio(generated_wav,synthesizer)
+            #play_audio(generated_wav,sample_rate)
 
             return        
     except Exception as e:
@@ -214,7 +296,7 @@ def greet(Text,Voicetoclone):
       in_fpath = Path(Voicetoclone)
       #in_fpath= in_fpath.replace("\"", "").replace("\'", "")
       
-      out_path=clone_voice(in_fpath, text,synthesizer)
+      out_path=clone_voice(in_fpath, text)
 
       print(" > text: {}".format(text))
 
@@ -228,6 +310,7 @@ demo = gr.Interface(
             type="filepath",         
             source="upload",
             label='Please upload a voice to clone (max. 30mb)')
+
             ],
     outputs="audio",
 
@@ -242,7 +325,7 @@ demo = gr.Interface(
                         </div>''',
 
            examples = [
-                        ["I am the cloned version of Donald Trump.Well,  I think what's happening to this country is unbelievably bad. We're no longer a respected country" ,"trump.mp3"]
+                        ["I am the cloned version of Donald Trump. Well,  I think what's happening to this country is unbelievably bad. We're no longer a respected country" ,"trump.mp3"]
                                            
                       ]     
 
