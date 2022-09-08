@@ -371,9 +371,9 @@ demo = gr.Interface(
                         </div>''',
 
            examples = [
-                        ["I am the cloned version of Donald Trump. Well.  I think what's happening to this country is unbelievably bad. We're no longer a respected country" ,"trump.mp3",],
-                        ["I am the cloned version of Elon Musk. Persistence is very important. You should not give up unless you are forced to give up.","musk.mp3",] ,
-                        ["I am the cloned version of Elizabeth. It has always been easy to hate and destroy. To build and to cherish is much more difficult." ,"queen.mp3",]                                   
+                        ["I am the cloned version of Donald Trump. Well.  I think what's happening to this country is unbelievably bad. We're no longer a respected country" ,"trump.mp3",]
+                        #["I am the cloned version of Elon Musk. Persistence is very important. You should not give up unless you are forced to give up.","musk.mp3",] ,
+                        #["I am the cloned version of Elizabeth. It has always been easy to hate and destroy. To build and to cherish is much more difficult." ,"queen.mp3",]                                   
                       ]     
     
     )
