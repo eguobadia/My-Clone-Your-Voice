@@ -14,7 +14,7 @@ from vocoder import inference as vocoder
 import time
 import librosa
 import numpy as np
-import sounddevice as sd
+#import sounddevice as sd
 import soundfile as sf
 import argparse
 from utils.argutils import print_args
@@ -142,6 +142,12 @@ def create_spectrogram(text,embed):
         breaks = [spec.shape[1] for spec in specs]
         spec = np.concatenate(specs, axis=1)
         sample_rate=synthesizer.sample_rate
+
+
+        #del synthesizer
+        #clean_memory()
+
+        
         return spec, breaks , sample_rate
 
 
@@ -200,6 +206,8 @@ def generate_waveform(current_generated):
 
         # Trim excess silences to compensate for gaps in spectrograms (issue #53)
         generated_wav = encoder.preprocess_wav(generated_wav)
+
+
 
 
         return generated_wav
@@ -371,14 +379,10 @@ demo = gr.Interface(
                         </div>''',
 
            examples = [
-                        ["I am the cloned version of Donald Trump. Well.  I think what's happening to this country is unbelievably bad. We're no longer a respected country" ,"trump.mp3",]
-                                           
+                        ["I am the cloned version of Donald Trump. Well.  I think what's happening to this country is unbelievably bad. We're no longer a respected country" ,"trump.mp3",],
+                        ["I am the cloned version of Elon Musk. Persistence is very important. You should not give up unless you are forced to give up.","musk.mp3",] ,
+                        ["I am the cloned version of Elizabeth. It has always been easy to hate and destroy. To build and to cherish is much more difficult."  ,"queen.mp3",]               
                       ]     
-
-    
-    
-    
-    
     
     )
 demo.launch()
