@@ -231,6 +231,20 @@ def play_audio(generated_wav,sample_rate):
                 print("Continuing without audio playback. Suppress this message with the \"--no_sound\" flag.\n")
             except:
                 raise
+         
+
+def clean_memory():
+    import gc
+    #import GPUtil
+    # To see memory usage
+    print('Before clean ')
+    #GPUtil.showUtilization()
+    #cleaning memory 1
+    gc.collect()
+    torch.cuda.empty_cache()
+    time.sleep(2)
+    print('After Clean GPU')
+    #GPUtil.showUtilization()
 
 def clone_voice(in_fpath, text):
     try:       
@@ -271,9 +285,36 @@ USE_CUDA = torch.cuda.is_available()
 os.system('pip install -q pydub ffmpeg-normalize')
 CONFIG_SE_PATH = "config_se.json"
 CHECKPOINT_SE_PATH = "SE_checkpoint.pth.tar"
-def greet(Text,Voicetoclone):
+def greet(Text,Voicetoclone ,input_mic=None):
     text= "%s" % (Text)
     #reference_files= "%s" % (Voicetoclone)
+
+    clean_memory()
+    print(text,len(text),type(text))
+    print(Voicetoclone,type(Voicetoclone))
+
+    if  len(text) == 0 : 
+        print("Please add text to the program")
+        Text="Please add text to the program, thank you."
+        is_no_text=True
+    else:
+        is_no_text=False
+
+    
+    if Voicetoclone==None and input_mic==None:
+        print("There is no input audio")
+        Text="Please add audio input, to the program, thank you."
+        Voicetoclone='trump.mp3'
+        if  is_no_text:
+            Text="Please add text and audio, to the program, thank you."
+
+    if  input_mic != None:
+        # Get the wav file from the microphone
+        print('The value of MIC IS :',input_mic,type(input_mic))
+        Voicetoclone= input_mic
+
+
+    text= "%s" % (Text)
     reference_files= Voicetoclone
     print("path url")
     print(Voicetoclone)
@@ -309,7 +350,12 @@ demo = gr.Interface(
             gr.Audio(
             type="filepath",         
             source="upload",
-            label='Please upload a voice to clone (max. 30mb)')
+            label='Please upload a voice to clone (max. 30mb)'),
+            gr.inputs.Audio(
+            source="microphone", 
+            label='or record',
+            type="filepath", 
+            optional=True)
 
             ],
     outputs="audio",
@@ -325,7 +371,7 @@ demo = gr.Interface(
                         </div>''',
 
            examples = [
-                        ["I am the cloned version of Donald Trump. Well,  I think what's happening to this country is unbelievably bad. We're no longer a respected country" ,"trump.mp3"]
+                        ["I am the cloned version of Donald Trump. Well.  I think what's happening to this country is unbelievably bad. We're no longer a respected country" ,"trump.mp3",]
                                            
                       ]     
 
