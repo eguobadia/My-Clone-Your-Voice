@@ -308,11 +308,10 @@ def greet(Text,Voicetoclone ,input_mic=None):
         if  is_no_text:
             Text="Please add text and audio, to the program, thank you."
 
-    if  input_mic != None:
+    if  input_mic != "" and input_mic != None :
         # Get the wav file from the microphone
         print('The value of MIC IS :',input_mic,type(input_mic))
         Voicetoclone= input_mic
-
 
     text= "%s" % (Text)
     reference_files= Voicetoclone
@@ -356,7 +355,6 @@ demo = gr.Interface(
             label='or record',
             type="filepath", 
             optional=True)
-
             ],
     outputs="audio",
 
@@ -370,11 +368,10 @@ demo = gr.Interface(
                             </p>
                         </div>''',
 
-           #examples = [
-           #             ["I am the cloned version of Donald Trump. Well.  I think what's happening to this country is unbelievably bad. We're no longer a respected country" ,"trump.mp3",],
-           #             ["I am the cloned version of Elon Musk. Persistence is very important. You should not give up unless you are forced to give up.","musk.mp3",] ,
-           #             ["I am the cloned version of Elizabeth. It has always been easy to hate and destroy. To build and to cherish is much more difficult."  ,"queen.mp3",]                    
-           #           ]      
+           examples = [["I am the cloned version of Donald Trump. Well. I think what's happening to this country is unbelievably bad. We're no longer a respected country","trump.mp3",],
+                        ["I am the cloned version of Elon Musk. Persistence is very important. You should not give up unless you are forced to give up.","musk.mp3",] ,
+                        ["I am the cloned version of Elizabeth. It has always been easy to hate and destroy. To build and to cherish is much more difficult." ,"queen.mp3",]                    
+                      ]      
     
     )
 demo.launch()
