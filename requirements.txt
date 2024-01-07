@@ -1,4 +1,4 @@
-torch==1.12.1+cu116 --find-links https://download.pytorch.org/whl/torch_stable.html
+torch==1.4.0+cu116 --find-links https://download.pytorch.org/whl/torch_stable.html
 gradio==3.0.4
 PyQt5==5.15.6
 sounddevice==0.4.3
