@@ -1,4 +1,4 @@
-torch==1.10.0+cu111 -f https://download.pytorch.org/whl/cu111/torch_stable.html
+torch==1.10.0
 gradio==3.0.4
 PyQt5==5.15.6
 sounddevice==0.4.3
