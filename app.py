@@ -94,12 +94,14 @@ def compute_embedding(in_fpath):
     
     # Get the wav from the disk. We take the wav with the vocoder/synthesizer format for
     # playback, so as to have a fair comparison with the generated audio
+    print("Step 1- load_preprocess_wav")
     wav = Synthesizer.load_preprocess_wav(in_fpath)
     
     # important: there is preprocessing that must be applied.
 
     # The following two methods are equivalent:
     # - Directly load from the filepath:
+    print("Step 2- preprocess_wav")
     preprocessed_wav = encoder.preprocess_wav(wav)
 
     # - If the wav is already loaded:
@@ -107,6 +109,7 @@ def compute_embedding(in_fpath):
     #preprocessed_wav = encoder.preprocess_wav(original_wav, sampling_rate)
 
     # Compute the embedding
+    print("Step 3- embed_utterance")
     embed, partial_embeds, _ = encoder.embed_utterance(preprocessed_wav, return_partials=True)
 
 
