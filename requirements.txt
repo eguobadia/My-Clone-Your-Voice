@@ -1,4 +1,5 @@
-torch==1.12.1+cu116 --find-links https://download.pytorch.org/whl/torch/
+#torch==1.12.1+cu116 --find-links https://download.pytorch.org/whl/torch/
+https://download.pytorch.org/whl/cu116/torch-1.12.1%2Bcu116-cp38-cp38-linux_x86_64.whl#sha256=dda312901220895087cc83d3665464a3dc171d04460c61c31af463efbfb54896
 gradio==3.0.4
 PyQt5==5.15.6
 sounddevice==0.4.3
